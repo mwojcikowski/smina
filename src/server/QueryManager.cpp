@@ -70,11 +70,11 @@ unsigned QueryManager::add(unsigned oldqid, stream_ptr io)
 		OBMol rec;
 		if (conv.ReadString(&rec, recstr))
 		{
-			rec.AddHydrogens(true);
+			rec.AddPolarHydrogens();
 			//force partial charge calculation
 			FOR_ATOMS_OF_MOL(a, rec)
 			{
-			//	a->GetPartialCharge();
+				a->GetPartialCharge();
 			}
 			recstr = conv.WriteString(&rec);
 		}
@@ -94,7 +94,6 @@ unsigned QueryManager::add(unsigned oldqid, stream_ptr io)
 	unsigned numrec = 0, numunfrag = 0;
 	params >> numrec;
 	params >> numunfrag;
-
 	//attempt to create query
 	QueryPtr q;
 	try
