@@ -1,0 +1,4 @@
+*.o
+smina
+vina_split
+smina.gpu

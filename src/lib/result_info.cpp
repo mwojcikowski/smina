@@ -37,7 +37,7 @@ void result_info::setMolecule(const model& m)
 //write a table (w/header) of per atom values to out
 void result_info::writeAtomValues(std::ostream& out,
 		const weighted_terms *wt) const
-		{
+{
 	const terms *t = wt->unweighted_terms();
 	out << "atomid el pos";
 	std::vector<std::string> names = t->get_names(true);
@@ -114,11 +114,12 @@ void result_info::writeFlex(std::ostream& out, std::string& ext)
 //output molecular data
 //ideally, we will deal natively in sdf and only use openbabel to convert for alternative formats
 void result_info::write(std::ostream& out, std::string& ext,
-		bool include_atom_terms, const weighted_terms *wt)
+		bool include_atom_terms, const weighted_terms *wt, int modelnum)
 {
 	using namespace OpenBabel;
 	OBMol mol;
 	OBConversion outconv;
+
 	OBFormat *format = outconv.FormatFromExt(ext);
 
 	if (sdfvalid && strcmp(format->GetID(), "sdf") == 0) //use native sdf
@@ -173,6 +174,8 @@ void result_info::write(std::ostream& out, std::string& ext,
 					"atomic_interaction_terms", astr.str());
 		}
 		mol.SetTitle(name); //otherwise lose space separated names
+		outconv.SetLast(false);
+		outconv.SetOutputIndex(modelnum+1); //for pdb multi model output, workaround OB bug with ignoring model 1
 		outconv.Write(&mol, &out);
 	}
 }

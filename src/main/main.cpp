@@ -3,7 +3,9 @@
 #include <iostream>
 #include <string>
 #include <exception>
-#include <vector> // ligand paths#include <cmath> // for ceila#include <boost/filesystem/fstream.hpp>#include <boost/filesystem/exception.hpp>
+#include <vector> // ligand paths#include <cmath> // for ceila
+#include <algorithm>
+#include <iterator>#include <boost/filesystem/fstream.hpp>#include <boost/filesystem/exception.hpp>
 #include <boost/filesystem/convenience.hpp> // filesystem::basename#include <boost/thread/thread.hpp> // hardware_concurrency // FIXME rm ?#include <boost/lexical_cast.hpp>#include "parse_pdbqt.h"#include "parallel_mc.h"
 #include "file.h"
 #include "cache.h"
@@ -29,10 +31,13 @@
 #include "precalculate_gpu.h"
 #include <boost/timer.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/unordered_set.hpp>
 #include "array3d.h"
 #include "grid.h"
 #include "molgetter.h"
 #include "result_info.h"
+#include "box.h"
+#include "flexinfo.h"
 
 using namespace boost::iostreams;
 using boost::filesystem::path;
@@ -518,6 +523,8 @@ void check_occurrence(boost::program_options::variables_map& vm,
 	}
 }
 
+
+
 //generate a box around the provided ligand padded by autobox_add
 //if centers are always overwritten, but if sizes are non zero they are preserved
 void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
@@ -533,41 +540,30 @@ void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
 
 	OBMol mol;
 	center_x = center_y = center_z = 0;
-	fl min_x = HUGE_VAL, min_y = HUGE_VAL, min_z = HUGE_VAL;
-	fl max_x = -HUGE_VAL, max_y = -HUGE_VAL, max_z = -HUGE_VAL;
-	fl num = 0;
+	Box b;
 	while (conv.Read(&mol)) //openbabel divides separate residues into multiple molecules
 	{
-		unsigned n;
-
-		FOR_ATOMS_OF_MOL(a, mol)
-				{
-			center_x += a->x();
-			center_y += a->y();
-			center_z += a->z();
-			min_x = std::min(min_x, (fl) a->x());
-			min_y = std::min(min_y, (fl) a->y());
-			min_z = std::min(min_z, (fl) a->z());
-			max_x = std::max(max_x, (fl) a->x());
-			max_y = std::max(max_y, (fl) a->y());
-			max_z = std::max(max_z, (fl) a->z());
-			num++;
-		}
+		b.add_ligand_box(mol);
 	}
-	center_x /= num;
-	center_y /= num;
-	center_z /= num;
-	if (size_x == 0)
-		size_x = (max_x - min_x) + autobox_add;
-	if (size_y == 0)
-		size_y = (max_y - min_y) + autobox_add;
-	if (size_z == 0)
-		size_z = (max_z - min_z) + autobox_add;
 
-	else
+	//set to center of bounding box (as opposed to center of mass
+	center_x = (b.max_x+b.min_x)/2.0;
+	center_y = (b.max_y+b.min_y)/2.0;
+	center_z = (b.max_z+b.min_z)/2.0;
+
+	b.expand(autobox_add);
+	if (size_x == 0)
+		size_x = (b.max_x - b.min_x);
+	if (size_y == 0)
+		size_y = (b.max_y - b.min_y);
+	if (size_z == 0)
+		size_z = (b.max_z - b.min_z);
+
+	if(!std::isfinite(b.max_x) || !std::isfinite(b.max_y) || !std::isfinite(b.max_z))
 	{
-		std::cerr << "Unable to read  " << autobox_ligand << "\n";
-		exit(-1);
+		std::stringstream msg;
+		msg << "Unable to read  " << autobox_ligand;
+		throw usage_error(msg.str());
 	}
 }
 
@@ -713,54 +709,78 @@ static void initializeCUDA(int device)
 }
 #endif
 
+
 //create the initial model from the specified receptor files
 //mostly because Matt kept complaining about it, this will automatically create
 //pdbqts if necessary using open babel
 static void create_init_model(const std::string& rigid_name,
-		const std::string& flex_name, model& initm, tee& log)
+		const std::string& flex_name, FlexInfo& finfo, model& initm, tee& log)
 {
 	if (rigid_name.size() > 0)
 	{
-		std::istream *rigidin_ptr = NULL; //either file or string from openbabel conversion
-		ifile rigidin(rigid_name);
-		std::stringstream str_rigid;
-		rigidin_ptr = &rigidin;
-		if (boost::filesystem::extension(rigid_name) != ".pdbqt")
+		//support specifying flexible residues explicitly as pdbqt, but only
+		//in compatibility mode where receptor is pdbqt as well
+		if(flex_name.size() > 0)
 		{
+			if(finfo.hasContent())
+			{
+				throw usage_error("Cannot mix -flex option with -flexres or -flexdist options.");
+			}
+			if (boost::filesystem::extension(rigid_name) != ".pdbqt")
+			{
+				throw usage_error("Cannot use -flex option with non-PDBQT receptor.");
+			}
+			ifile rigidin(rigid_name);
+			ifile flexin(flex_name);
+			initm = parse_receptor_pdbqt(rigid_name, rigidin, flex_name, flexin);
+		}
+		else if(!finfo.hasContent() && boost::filesystem::extension(rigid_name) == ".pdbqt")
+		{
+			//compatibility mode - read pdbqt directly with no openbabel shenanigans
+			ifile rigidin(rigid_name);
+			initm = parse_receptor_pdbqt(rigid_name, rigidin);
+		}
+		else
+		{
+			//default, openbabel mode
 			using namespace OpenBabel;
 			obmol_opener fileopener;
 			OBConversion conv;
 			conv.SetOutFormat("PDBQT");
 			conv.AddOption("r", OBConversion::OUTOPTIONS); //rigid molecule, otherwise really slow and useless analysis is triggered
+			conv.AddOption("c", OBConversion::OUTOPTIONS); //single combined molecule
 			fileopener.openForInput(conv, rigid_name);
 			OBMol rec;
 			if (!conv.Read(&rec))
 				throw file_error(rigid_name, true);
 
-			rec.AddHydrogens();
-			std::string recstr = conv.WriteString(&rec);
-			str_rigid.str(recstr);
-			rigidin_ptr = &str_rigid;
+			rec.AddHydrogens(true);
+			FOR_ATOMS_OF_MOL(a, rec)
+			{
+				a->GetPartialCharge();
+			}
+			OBMol rigid;
+			std::string flexstr;
+			finfo.extractFlex(rec, rigid, flexstr);
+
+			std::string recstr = conv.WriteString(&rigid);
+			std::stringstream recstream(recstr);
+
+			if(flexstr.size() > 0) //have flexible component
+			{
+				std::stringstream flexstream(flexstr);
+				initm = parse_receptor_pdbqt(rigid_name, recstream, flex_name, flexstream);
+			}
+			else //rigid only
+			{
+				initm = parse_receptor_pdbqt(rigid_name, recstream);
+			}
+
 		}
 
-		if (flex_name.size() > 1
-				&& boost::filesystem::extension(flex_name)
-						!= ".pdbqt")
-			log
-					<< "WARNING: flexible receptor does not appear to be in PDBQT format\n";
-
-		if (flex_name.size() > 0) //have flexible residues
-		{
-			ifile flexin(flex_name);
-			initm = parse_receptor_pdbqt(rigid_name, *rigidin_ptr,
-					flex_name, flexin);
-		}
-		else //just rigid
-		{
-			initm = parse_receptor_pdbqt(rigid_name, *rigidin_ptr);
-		}
 	}
 }
+
 
 
 int main(int argc, char* argv[])
@@ -806,11 +826,14 @@ Thank you!\n";
 		std::string ligand_names_file;
 		std::string custom_file_name;
 		std::string usergrid_file_name;
+		std::string flex_res;
+		double flex_dist = -1.0;
 		fl center_x = 0, center_y = 0, center_z = 0, size_x = 0, size_y = 0,
 				size_z = 0;
-		fl autobox_add = 8;
+		fl autobox_add = 4;
 		fl out_min_rmsd = 1;
 		std::string autobox_ligand;
+		std::string flexdist_ligand;
 		int device = 0;
 
 		// -0.035579, -0.005156, 0.840245, -0.035069, -0.587439, 0.05846
@@ -831,6 +854,7 @@ Thank you!\n";
 		bool flex_hydrogens = false;
 		bool gpu_on = false;
 		bool print_terms = false;
+		bool print_atom_types = false;
 		bool add_hydrogens = true;
 		bool no_lig = false;
 
@@ -848,7 +872,14 @@ Thank you!\n";
 		("flex", value<std::string>(&flex_name),
 				"flexible side chains, if any (PDBQT)")
 		("ligand,l", value<std::vector<std::string> >(&ligand_names),
-				"ligand(s)");
+				"ligand(s)")
+		("flexres", value<std::string>(&flex_res),
+				"flexible side chains specified by comma separated list of chain:resid")
+		("flexdist_ligand", value<std::string>(&flexdist_ligand),
+						"Ligand to use for flexdist")
+		("flexdist", value<double>(&flex_dist),
+				"set all side chains within specified distance to flexdist_ligand to flexible");
+
 		//options_description search_area("Search area (required, except with --score_only)");
 		options_description search_area("Search space (required)");
 		search_area.add_options()
@@ -861,7 +892,7 @@ Thank you!\n";
 		("autobox_ligand", value<std::string>(&autobox_ligand),
 				"Ligand to use for autobox")
 		("autobox_add", value<fl>(&autobox_add),
-				"Amount of buffer space to add to auto-generated box (default 8)")
+				"Amount of buffer space to add to auto-generated box (default +4 on all six sides)")
 		("no_lig", bool_switch(&no_lig)->default_value(false),
 				"no ligand; for sampling/minimizing flexible residues");
 
@@ -906,7 +937,9 @@ Thank you!\n";
 		("user_grid_lambda", value<fl>(&user_grid_lambda)->default_value(-1.0),
 								"Scales user_grid and functional scoring")
 		("print_terms", bool_switch(&print_terms),
-				"Print all available terms with default parameterizations");
+				"Print all available terms with default parameterizations")
+		("print_atom_types", bool_switch(&print_atom_types),
+				"Print all available atom types");
 
 		options_description hidden("Hidden options for internal testing");
 		hidden.add_options()
@@ -1012,6 +1045,14 @@ Thank you!\n";
 			t.print_available_terms(std::cout);
 			return 0;
 		}
+
+		if(print_atom_types)
+		{
+			VINA_FOR(i, smina_atom_type::NumTypes) {
+				std::cout << smina_atom_type::data[i].smina_name << "\n";
+			}
+			return 0;
+		}
 #ifdef SMINA_GPU
 		initializeCUDA(device);
 #endif
@@ -1113,6 +1154,13 @@ Thank you!\n";
 				throw usage_error("Search space dimensions should be positive");
 		}
 
+		if(flex_dist > 0 && flexdist_ligand.size() == 0)
+		{
+			throw usage_error("Must specify flexdist_ligand with flex_dist");
+		}
+
+		FlexInfo finfo(flex_res, flex_dist, flexdist_ligand, log);
+
 		log << cite_message << '\n';
 
 		grid_dims gd; // n's = 0 via default c'tor
@@ -1200,10 +1248,11 @@ Thank you!\n";
 			log
 					<< "WARNING: at low exhaustiveness, it may be impossible to utilize all CPUs\n";
 
+
 		//dkoes - parse in receptor once
 		model initm;
 
-		create_init_model(rigid_name, flex_name, initm, log);
+		create_init_model(rigid_name, flex_name, finfo, initm, log);
 
 		//dkoes, hoist precalculation outside of loop
 		weighted_terms wt(&t, t.weights());
@@ -1292,7 +1341,7 @@ Thank you!\n";
 					//write out molecular data
 					for (unsigned j = 0, nr = results.size(); j < nr; j++)
 					{
-						results[j].write(outfile, outext, settings.include_atom_info, &wt);
+						results[j].write(outfile, outext, settings.include_atom_info, &wt, j+1);
 					}
 				}
 				if(outflex)
