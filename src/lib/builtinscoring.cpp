@@ -12,6 +12,12 @@ builtin_scoring::builtin_scoring()
 	add("vina","num_tors_div", 5 * 0.05846 / 0.1 - 1);
 
 	functions["default"] = functions["vina"];
+	
+	add("vinardo","gauss(o=0,_w=0.8,_c=8)", -0.045);
+	add("vinardo","repulsion(o=0,_c=8)", 0.80);
+	add("vinardo","hydrophobic(g=0.0,_b=2.5,_c=8)", -0.035);
+	add("vinardo","non_dir_h_bond(g=-0.6,_b=0,_c=8)", -0.60);
+	add("vinardo","num_tors_div", 5 * 0.02 / 0.1 - 1);
 
 	add("dkoes_scoring","vdw(i=4,_j=8,_s=0,_^=100,_c=8)", 0.009900);
 	add("dkoes_scoring","non_dir_h_bond(g=-0.7,_b=0,_c=8)", -0.153055);
