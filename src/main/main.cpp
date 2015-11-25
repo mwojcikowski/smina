@@ -6,7 +6,8 @@
 #include <vector> // ligand paths#include <cmath> // for ceila
 #include <algorithm>
 #include <iterator>#include <boost/filesystem/fstream.hpp>#include <boost/filesystem/exception.hpp>
-#include <boost/filesystem/convenience.hpp> // filesystem::basename#include <boost/thread/thread.hpp> // hardware_concurrency // FIXME rm ?#include <boost/lexical_cast.hpp>#include "parse_pdbqt.h"#include "parallel_mc.h"
+#include <boost/filesystem/convenience.hpp> // filesystem::basename#include <boost/thread/thread.hpp> // hardware_concurrency // FIXME rm ?#include <boost/lexical_cast.hpp>
+#include <boost/assign.hpp>#include "parse_pdbqt.h"#include "parallel_mc.h"
 #include "file.h"
 #include "cache.h"
 #include "non_cache.h"
@@ -38,6 +39,7 @@
 #include "result_info.h"
 #include "box.h"
 #include "flexinfo.h"
+#include "builtinscoring.h"
 
 using namespace boost::iostreams;
 using boost::filesystem::path;
@@ -147,6 +149,7 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 		grid& user_grid)
 {
 	change g(m.get_size());
+
 	quasi_newton quasi_newton_par(minparm);
 	const fl slope_orig = nc.getSlope();
 	//try 5 times to get ligand into box
@@ -567,46 +570,94 @@ void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
 	}
 }
 
-//several built-in functions I've designed
-void setup_dkoes_terms(custom_terms& t, bool dkoes_score, bool dkoes_score_old,
-		bool dkoes_fast)
+template <class T>
+inline void read_atomconstants_field(smina_atom_type::info& info, T (smina_atom_type::info::* field), unsigned int line, const std::string& field_name, std::istream& in)
 {
-	if (dkoes_score + dkoes_score_old + dkoes_fast != 1)
-		throw usage_error("dkoes scoring options are mutually exclusive");
-
-	if (dkoes_score)
+	if (!(in >> (info.*field) ))
 	{
-		t.add("vdw(i=4,_j=8,_s=0,_^=100,_c=8)", 0.009900);
-		t.add("non_dir_h_bond(g=-0.7,_b=0,_c=8)", -0.153055);
-		t.add("ad4_solvation(d-sigma=3.6,_s/q=0.01097,_c=8)", 0.048934);
-		t.add("num_tors_sqr", 0.317267);
-		t.add("constant_term", -2.469020);
-		/* trained with openbabel partial charges
-		 weights.push_back(0.010764); //vdw
-		 weights.push_back(-0.156861); //hbond
-		 weights.push_back(0.062407); //desolvation
-		 weights.push_back(0.337036); //tors sqr
-		 weights.push_back(-2.231827); //constant
-		 */
+		throw usage_error("Error at line " + boost::lexical_cast<std::string>(line) + " while reading field '" + field_name + "' from the atom constants file.");
 	}
-	else if (dkoes_score_old)
-	{
-		t.add("vdw(i=4,_j=8,_s=0,_^=100,_c=8)", 0.010607);
-		t.add("non_dir_h_bond(g=-0.7,_b=0,_c=8)", 0.197201);
-		t.add("num_tors_sqr", .285035);
-		t.add("constant_term", -2.585651);
+}
 
-		//desolvation wasn't actually getting counted, but this is the constant
-//			weights.push_back(0.044580); //desolvation
-
-	}
-	else if (dkoes_fast)
+void setup_atomconstants_from_file(const std::string& atomconstants_file)
+{
+	std::ifstream file(atomconstants_file.c_str());
+	if (file)
 	{
-		t.add("vdw(i=4,_j=8,_s=0,_^=100,_c=8)", 0.008962);
-		t.add("non_dir_h_bond(g=-0.7,_b=0,_c=8)", 0.387739);
-		t.add("num_tors_sqr", .285035);
-		t.add("constant_term", -2.467357);
+		// create map from atom type names to indices
+		boost::unordered_map<std::string, unsigned> atomindex;
+		for(size_t i = 0u; i < smina_atom_type::NumTypes; ++i)
+		{
+			atomindex[smina_atom_type::default_data[i].smina_name] = i;
+		}
+
+		//parse each line of the file
+		std::string line;
+		unsigned lineno = 1;
+		while(std::getline(file, line))
+		{
+			std::string name;
+			std::stringstream ss(line);
+
+			if(line.length() == 0 || line[0] == '#')
+				continue;
+
+			ss >> name;
+			
+			if(atomindex.count(name))
+			{
+				unsigned i = atomindex[name];
+				smina_atom_type::info& info = smina_atom_type::data[i];
+
+				//change this atom's parameters
+#				define read_field(field) read_atomconstants_field(info, &smina_atom_type::info::field, lineno, #field, ss)
+				read_field(ad_radius);
+				read_field(ad_depth);
+				read_field(ad_solvation);
+				read_field(ad_volume);
+				read_field(covalent_radius);
+				read_field(xs_radius);
+				read_field(xs_hydrophobe);
+				read_field(xs_donor);
+				read_field(xs_acceptor);
+				read_field(ad_heteroatom);
+#				undef read_field
+			}
+			else
+			{
+				std::cerr << "Line " << lineno << ": ommitting atom type name " << name << "\n";
+			}
+			lineno++;
+		}
 	}
+	else
+		throw usage_error("Error opening atom constants file:  " + atomconstants_file);
+}
+
+void print_atom_info(std::ostream& out)
+{
+	out << "#Name radius depth solvation volume covalent_radius xs_radius xs_hydrophobe xs_donor xs_acceptr ad_heteroatom\n";
+	VINA_FOR(i, smina_atom_type::NumTypes) {
+		smina_atom_type::info& info = smina_atom_type::data[i];
+		out << info.smina_name;
+		out << " " << info.ad_radius;
+		out << " " << info.ad_depth;
+		out << " " << info.ad_solvation;
+		out << " " << info.ad_volume;
+		out << " " << info.covalent_radius;
+		out << " " << info.xs_radius;
+		out << " " << info.xs_hydrophobe;
+		out << " " << info.xs_donor;
+		out << " " << info.xs_acceptor;
+		out << " " << info.ad_heteroatom;
+		out << "\n";
+	}
+}
+
+void setup_atomconstants_default()
+{
+	for(size_t i = 0u; i < smina_atom_type::NumTypes; ++i)
+		smina_atom_type::data[i] = smina_atom_type::default_data[i];
 }
 
 void setup_user_gd(grid_dims& gd, std::ifstream& user_in)
@@ -824,6 +875,7 @@ Thank you!\n";
 		std::string out_name;
 		std::string outf_name;
 		std::string ligand_names_file;
+		std::string atomconstants_file;
 		std::string custom_file_name;
 		std::string usergrid_file_name;
 		std::string flex_res;
@@ -834,6 +886,7 @@ Thank you!\n";
 		fl out_min_rmsd = 1;
 		std::string autobox_ligand;
 		std::string flexdist_ligand;
+		std::string builtin_scoring;
 		int device = 0;
 
 		// -0.035579, -0.005156, 0.840245, -0.035069, -0.587439, 0.05846
@@ -845,10 +898,6 @@ Thank you!\n";
 		fl weight_rot = 0.05846;
 		fl user_grid_lambda;
 		bool help = false, help_hidden = false, version = false;
-		bool dkoes_score = false;
-		bool ad4_score = false;
-		bool dkoes_score_old = false;
-		bool dkoes_fast = false;
 		bool quiet = false;
 		bool accurate_line = false;
 		bool flex_hydrogens = false;
@@ -911,8 +960,10 @@ Thank you!\n";
 
 		options_description scoremin("Scoring and minimization options");
 		scoremin.add_options()
+		("scoring", value<std::string>(&builtin_scoring),"specify alternative builtin scoring function")
 		("custom_scoring", value<std::string>(&custom_file_name),
 				"custom scoring function file")
+		("custom_atoms", value<std::string>(&atomconstants_file), "custom atom type parameters file")
 		("score_only", bool_switch(&settings.score_only)->default_value(false), "score provided ligand pose")
 		("local_only", bool_switch(&settings.local_only)->default_value(false),
 				"local search only using autobox (you probably want to use --minimize)")
@@ -938,20 +989,14 @@ Thank you!\n";
 								"Scales user_grid and functional scoring")
 		("print_terms", bool_switch(&print_terms),
 				"Print all available terms with default parameterizations")
-		("print_atom_types", bool_switch(&print_atom_types),
-				"Print all available atom types");
+				("print_atom_types", bool_switch(&print_atom_types), "Print all available atom types");
 
 		options_description hidden("Hidden options for internal testing");
 		hidden.add_options()
-		("dkoes_scoring", bool_switch(&dkoes_score),
-				"Use my custom scoring function")
-		("dkoes_scoring_old", bool_switch(&dkoes_score_old),
-				"Use old (vdw+hbond) scoring function")
-		("dkoes_fast", bool_switch(&dkoes_fast), "VDW+nrot only")
-		("ad4_scoring", bool_switch(&ad4_score),
-				"Approximation of Autodock 4 scoring")
 		("verbosity", value<int>(&settings.verbosity)->default_value(1),
-				"Adjust the verbosity of the output, default: 1");
+				"Adjust the verbosity of the output, default: 1")
+    ("flex_hydrogens", bool_switch(&flex_hydrogens),
+        "Enable torsions effecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.");
 
 
 		options_description misc("Misc (optional)");
@@ -970,9 +1015,7 @@ Thank you!\n";
 		("quiet,q", bool_switch(&quiet), "Suppress output messages")
 		("addH", value<bool>(&add_hydrogens),
 				"automatically add hydrogens in ligands (on by default)")
-		("flex_hydrogens", bool_switch(&flex_hydrogens),
-				"Enable torsions effecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.")
-				#ifdef SMINA_GPU
+			#ifdef SMINA_GPU
 				("device", value<int>(&device)->default_value(0), "GPU device to use")
 				("gpu", bool_switch(&gpu_on), "Turn on GPU acceleration")
 #endif
@@ -1039,6 +1082,11 @@ Thank you!\n";
 			std::cout << version_string << '\n';
 			return 0;
 		}
+
+		setup_atomconstants_default();
+		if (!atomconstants_file.empty())
+			setup_atomconstants_from_file(atomconstants_file);
+
 		if (print_terms)
 		{
 			custom_terms t;
@@ -1046,13 +1094,13 @@ Thank you!\n";
 			return 0;
 		}
 
+
 		if(print_atom_types)
 		{
-			VINA_FOR(i, smina_atom_type::NumTypes) {
-				std::cout << smina_atom_type::data[i].smina_name << "\n";
-			}
+			print_atom_info(std::cout);
 			return 0;
 		}
+
 #ifdef SMINA_GPU
 		initializeCUDA(device);
 #endif
@@ -1141,6 +1189,7 @@ Thank you!\n";
 					center_x, center_y, center_z,
 					size_x, size_y, size_z);
 		}
+
 		if (search_box_needed && autobox_ligand.length() == 0)
 		{
 			options_occurrence oo = get_occurrence(vm, search_area);
@@ -1179,18 +1228,14 @@ Thank you!\n";
 			ifile custom_file(custom_file_name);
 			t.add_terms_from_file(custom_file);
 		}
-		else if (dkoes_score || dkoes_score_old || dkoes_fast)
+		else if (builtin_scoring.size() > 0)
 		{
-			//my own built-in scoring functions
-			setup_dkoes_terms(t, dkoes_score, dkoes_score_old, dkoes_fast);
-		}
-		else if (ad4_score)
-		{
-			t.add("vdw(i=6,_j=12,_s=0,_^=100,_c=8)", 0.1560);
-			t.add("non_dir_h_bond_lj(o=-0.7,_^=100,_c=8)", -0.0974);
-			t.add("ad4_solvation(d-sigma=3.5,_s/q=0.01097,_c=8)", 0.1159);
-			t.add("electrostatic(i=1,_^=100,_c=8)", 0.1465);
-			t.add("num_tors_add", 0.2744);
+			if(!builtin_scoring_functions.set(t, builtin_scoring))
+			{
+				std::stringstream ss;
+				builtin_scoring_functions.print_functions(ss);
+				throw usage_error("Invalid builtin scoring function: "+builtin_scoring+". Options are:\n"+ss.str());
+			}
 		}
 		else
 		{
@@ -1319,6 +1364,11 @@ Thank you!\n";
 			model m;
 			while (no_lig || mols.readMoleculeIntoModel(m))
 			{
+			  if(no_lig)
+			  {
+			    no_lig = false; //only go through loop once
+			    m = initm;
+			  }
 				if (settings.local_only)
 				{
 					//dkoes - for convenience get box from model
@@ -1373,7 +1423,7 @@ Thank you!\n";
 		return 1;
 	} catch (usage_error& e)
 	{
-		std::cerr << "\n\nUsage error: " << e.what() << ".\n";
+		std::cerr << "\n\nUsage error: " << e.what() << "\n";
 		return 1;
 	} catch (parse_error& e)
 	{
