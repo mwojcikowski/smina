@@ -3,11 +3,18 @@
 #include <iostream>
 #include <string>
 #include <exception>
-#include <vector> // ligand paths#include <cmath> // for ceila
+#include <vector> // ligand paths
+#include <cmath> // for ceila
 #include <algorithm>
-#include <iterator>#include <boost/filesystem/fstream.hpp>#include <boost/filesystem/exception.hpp>
-#include <boost/filesystem/convenience.hpp> // filesystem::basename#include <boost/thread/thread.hpp> // hardware_concurrency // FIXME rm ?#include <boost/lexical_cast.hpp>
-#include <boost/assign.hpp>#include "parse_pdbqt.h"#include "parallel_mc.h"
+#include <iterator>
+#include <boost/filesystem/fstream.hpp>
+#include <boost/filesystem/exception.hpp>
+#include <boost/filesystem/convenience.hpp> // filesystem::basename
+#include <boost/thread/thread.hpp> // hardware_concurrency // FIXME rm ?
+#include <boost/lexical_cast.hpp>
+#include <boost/assign.hpp>
+#include "parse_pdbqt.h"
+#include "parallel_mc.h"
 #include "file.h"
 #include "cache.h"
 #include "non_cache.h"
@@ -1412,6 +1419,9 @@ Thank you!\n";
 				i++;
 			}
 		}
+        
+        if(outfile) outfile.flush();
+
 	} catch (file_error& e)
 	{
 		std::cerr << "\n\nError: could not open \"" << e.name.string()
@@ -1458,4 +1468,5 @@ Thank you!\n";
 		std::cerr << "\n\nAn unknown error occurred. " << error_message;
 		return 1;
 	}
+    
 }
