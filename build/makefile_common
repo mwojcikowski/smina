@@ -15,7 +15,7 @@ LIBS = -l openbabel -l boost_iostreams${BOOST_LIB_VERSION} -l boost_timer${BOOST
 
 .SUFFIXES: .cpp .o
 
-%.o : ../../../src/*/%.cpp ../../../src/*/%.h 
+%.o : ../../../src/*/%.cpp 
 	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -c $< 
 	
 %.o : ../../../src/lib/CommandLine2/%.cpp 
