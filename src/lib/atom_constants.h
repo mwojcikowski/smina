@@ -204,6 +204,7 @@ const info default_data[NumTypes] = { //el, ad, xs
 				"M",	1.200000,	0.000000,	-0.001100,	22.449300,	1.750000,	1.200000,	false,	true,	false,	true}
 };
 
+
 }
 
 typedef smina_atom_type::type smt;
