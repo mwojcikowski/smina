@@ -50,7 +50,9 @@ Search space (required):
   --no_lig              no ligand; for sampling/minimizing flexible residues
 
 Scoring and minimization options:
+  --scoring arg                specify alternative builtin scoring function [e.g. vinardo]
   --custom_scoring arg         custom scoring function file
+  --custom_atoms arg           custom atom type parameters file
   --score_only                 score provided ligand pose
   --local_only                 local search only using autobox (you probably 
                                want to use --minimize)
@@ -97,9 +99,6 @@ Misc (optional):
   -q [ --quiet ]             Suppress output messages
   --addH arg                 automatically add hydrogens in ligands (on by 
                              default)
-  --flex_hydrogens           Enable torsions effecting only hydrogens (e.g. OH 
-                             groups). This is stupid but provides compatibility
-                             with Vina.
 
 Configuration file (optional):
   --config arg          the above options can be put here
@@ -108,6 +107,8 @@ Information (optional):
   --help                display usage summary
   --help_hidden         display usage summary with hidden options
   --version             display program version
+
+
 
 
 
