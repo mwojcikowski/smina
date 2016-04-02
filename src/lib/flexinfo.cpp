@@ -218,17 +218,29 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
 				while(resn.size() < 3)
 					resn += " ";
 
+				std::string resnum = boost::lexical_cast<std::string>(newres->GetNum());
+				while(resnum.size() < 4)
+					resnum = " " + resnum;
+
+				char ch = newres->GetChain();
 				boost::split(tokens, flexres, boost::is_any_of("\n"));
 				for(unsigned i = 0, n = tokens.size(); i < n; i++)
 				{
 					std::string line = tokens[i];
-					if(line.size() > 20)
+					if(line.size() > 25)
 					{
 						//replace UNL with resn
 						for(unsigned p = 0; p < 3; p++)
 						{
 							line[17+p] = resn[p];
 						}
+						//resid
+						for(unsigned p = 0; p < 4; p++)
+						{
+							line[22+p] = resnum[p];
+						}
+
+						line[21] = ch;
 					}
 
 					if(line.size() > 0)
