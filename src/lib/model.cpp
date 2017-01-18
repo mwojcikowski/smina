@@ -29,6 +29,18 @@
 namespace smina_atom_type
 {
 	info data[NumTypes] = {{},};
+
+	struct smina_atom_type_initializer
+	{
+		//auto-initializer for atom type data
+			smina_atom_type_initializer()
+			{
+					for(size_t i = 0u; i < smina_atom_type::NumTypes; ++i)
+						data[i] = default_data[i];
+			}
+	};
+
+	smina_atom_type_initializer sat_initializer;
 }
 
 
