@@ -139,11 +139,15 @@ struct info
 	bool xs_donor;
 	bool xs_acceptor;
 	bool ad_heteroatom;
+
 };
+
+
+extern info data[NumTypes];
 
 //dkoes - eventually I'd like to switch to a single unified atom typing, but
 //for now stitch everything together with a smina atom type
-const info data[] = { //el, ad, xs
+const info default_data[NumTypes] = { //el, ad, xs
 		{Hydrogen, EL_TYPE_H, AD_TYPE_H, XS_TYPE_SIZE,"Hydrogen",
 				"H",	1.000000,	0.020000,	0.000510,	0.000000,	0.370000,	0.000000,	false,	false,	false,	false},
 		{PolarHydrogen, EL_TYPE_H, AD_TYPE_HD, XS_TYPE_SIZE,"PolarHydrogen",
@@ -199,6 +203,7 @@ const info data[] = { //el, ad, xs
 		{GenericMetal, EL_TYPE_Met, AD_TYPE_METAL, XS_TYPE_Met_D,"GenericMetal",
 				"M",	1.200000,	0.000000,	-0.001100,	22.449300,	1.750000,	1.200000,	false,	true,	false,	true}
 };
+
 
 }
 
@@ -330,6 +335,13 @@ inline fl ad_volume(smt t) {
 	assert(t < smina_atom_type::NumTypes);
 	return smina_atom_type::data[t].ad_volume;
 }
+
+inline fl ad_depth(smt t) {
+        assert(t < smina_atom_type::NumTypes);
+        return smina_atom_type::data[t].ad_depth;
+}
+
+
 
 
 inline smt adjust_smina_type(smt t, bool Hbonded, bool heteroBonded)
