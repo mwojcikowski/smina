@@ -37,7 +37,7 @@
 #include "obmolopener.h"
 #include "gpucode.h"
 #include "precalculate_gpu.h"
-#include <boost/timer.hpp>
+#include <boost/timer/timer.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/unordered_set.hpp>
 #include "array3d.h"
@@ -207,7 +207,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		bool compute_atominfo, tee& log,
 		const terms *t, grid& user_grid, std::vector<result_info>& results)
 {
-	boost::timer time;
+	boost::timer::cpu_timer time;
 
 	precalculate_exact exact_prec(sf); //use exact computations for final score
 	conf_size s = m.get_size();
@@ -373,7 +373,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 			log.endl();
 		}
 	}
-	//std::cout << "Refine time " << time.elapsed() << "\n";
+	std::cout << "Refine time " << time.elapsed().wall / 1000000000.0 << "\n";
 }
 
 void load_ent_values(const grid_dims& gd, std::istream& user_in,
@@ -659,12 +659,6 @@ void print_atom_info(std::ostream& out)
 		out << " " << info.ad_heteroatom;
 		out << "\n";
 	}
-}
-
-void setup_atomconstants_default()
-{
-	for(size_t i = 0u; i < smina_atom_type::NumTypes; ++i)
-		smina_atom_type::data[i] = smina_atom_type::default_data[i];
 }
 
 void setup_user_gd(grid_dims& gd, std::ifstream& user_in)
@@ -1090,7 +1084,6 @@ Thank you!\n";
 			return 0;
 		}
 
-		setup_atomconstants_default();
 		if (!atomconstants_file.empty())
 			setup_atomconstants_from_file(atomconstants_file);
 
@@ -1358,6 +1351,7 @@ Thank you!\n";
 			log << "\n";
 		}
 
+		boost::timer::cpu_timer time;
 		MolGetter mols(initm, add_hydrogens);
 		//loop over input ligands
 		for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
@@ -1419,8 +1413,9 @@ Thank you!\n";
 				i++;
 			}
 		}
-        
-        if(outfile) outfile.flush();
+		std::cout << "Loop time " << time.elapsed().wall/1000000000.0 << "\n";
+
+    if(outfile) outfile.flush();
 
 	} catch (file_error& e)
 	{

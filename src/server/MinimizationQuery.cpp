@@ -20,6 +20,7 @@ using namespace boost;
 MinimizationParameters::MinimizationParameters() :
 		wt(NULL), nthreads(1)
 {
+
 	//default settings
 	minparms.maxiters = 10000;
 	minparms.type = minimization_params::BFGSAccurateLineSearch;
