@@ -13,6 +13,7 @@
 #include <boost/thread/thread.hpp> // hardware_concurrency // FIXME rm ?
 #include <boost/lexical_cast.hpp>
 #include <boost/assign.hpp>
+#include "common.h"
 #include "parse_pdbqt.h"
 #include "parallel_mc.h"
 #include "file.h"
@@ -1400,7 +1401,7 @@ Thank you!\n";
 					//write out flexible residue data data
 					for (unsigned j = 0, nr = results.size(); j < nr; j++)
 					{
-						results[j].writeFlex(outflex, outfext);
+						results[j].writeFlex(outflex, outfext, j+1);
 					}
 				}
 				if (atomoutfile)
