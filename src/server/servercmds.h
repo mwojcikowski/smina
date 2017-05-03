@@ -77,7 +77,7 @@ public:
 		getline(*io, str);
 		trim(str);
 		unsigned oldqid = atoi(str.c_str());
-		log.log("cancel %d",oldqid);
+		log.log("cancel %d\n",oldqid);
 		QueryPtr query = qmgr.get(oldqid);
 		if (query)
 		{
@@ -109,6 +109,34 @@ public:
 		if(query)
 		{
 			query->outputData(filters, *io);
+		}
+		io->close();
+	}
+};
+
+//get the json scoring output of the specified minimization
+class GetJSONScores : public Command
+{
+	QueryManager& qmgr;
+
+public:
+	GetJSONScores(QueryManager& q, Logger& l) :
+		Command(l), qmgr(q)
+	{
+	}
+
+	void execute(stream_ptr io)
+	{
+		//query id followed by filter params
+		MinimizationFilters filters;
+		unsigned qid = 0, draw = 0;
+		*io >> qid;
+		*io >> draw; //datatable draw code
+		filters.read(*io);
+		QueryPtr query = qmgr.get(qid);
+		if(query)
+		{
+			query->outputJSONData(filters, draw, *io);
 		}
 		io->close();
 	}

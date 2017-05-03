@@ -96,7 +96,7 @@ static void setMolData(OpenBabel::OBFormat *format, OpenBabel::OBMol& mol,
 }
 
 //output flexible residue conformers
-void result_info::writeFlex(std::ostream& out, std::string& ext)
+void result_info::writeFlex(std::ostream& out, std::string& ext, int modelnum)
 {
 	using namespace OpenBabel;
 	OBMol mol;
@@ -105,9 +105,10 @@ void result_info::writeFlex(std::ostream& out, std::string& ext)
 	//residue are pdbqt only currently
 	outconv.SetInFormat("PDBQT");
 	outconv.SetOutFormat(format);
-
 	outconv.ReadString(&mol, flexstr); //otherwise keep orig mol
 	mol.SetTitle(name); //same name as cmpd
+	outconv.SetLast(false);
+	outconv.SetOutputIndex(modelnum+1); //for pdb multi model output, workaround OB bug with ignoring model 1
 	outconv.Write(&mol, &out);
 }
 

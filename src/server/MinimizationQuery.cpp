@@ -20,6 +20,7 @@ using namespace boost;
 MinimizationParameters::MinimizationParameters() :
 		wt(NULL), nthreads(1)
 {
+
 	//default settings
 	minparms.maxiters = 10000;
 	minparms.type = minimization_params::BFGSAccurateLineSearch;
@@ -115,7 +116,7 @@ void MinimizationQuery::thread_startMinimization(MinimizationQuery *query)
 MinimizationQuery::Result* MinimizationQuery::minimize(model& m)
 {
 	static const grid empty_grid;
-	static const fl autobox_add = 8;
+	static const fl autobox_add = 4;
 	static const fl granularity = 0.375;
 	vec authentic_v(10, 10, 10); //"soft" minimization
 
@@ -129,10 +130,12 @@ MinimizationQuery::Result* MinimizationQuery::minimize(model& m)
 	//do minimization
 	grid_dims gd = m.movable_atoms_box(autobox_add, granularity);
 	change g(m.get_size());
-	quasi_newton quasi_newton_par(minparm.minparms);
 	szv_grid_cache gridcache(m, minparm.prec->cutoff_sqr());
-
 	non_cache nc(gridcache, gd, minparm.prec);
+
+  //regular minimization
+  quasi_newton quasi_newton_par(minparm.minparms);
+
 	//it rarely takes more than one try
 	fl slope = 10;
 	unsigned i;
@@ -419,6 +422,36 @@ void MinimizationQuery::outputData(const MinimizationFilters& f, ostream& out)
 		out << res->position << "," << res->orig_position << "," << res->name << "," << res->score << ","
 				<< res->rmsd << "\n";
 	}
+}
+
+//output json formated data, based off of datatables, does not include opening/closing brackets
+void MinimizationQuery::outputJSONData(const MinimizationFilters& f, int draw, ostream& out)
+{
+	checkThread();
+	vector<Result*> results;
+	unsigned total = loadResults(f, results);
+
+	//first line is status header with doneness and number done and filtered number
+	out << "{\n";
+	out << "\"finished\": " << finished() << ",\n";
+	out << "\"recordsTotal\": " << total << ",\n";
+	out << "\"recordsFiltered\": " << results.size() << ",\n";
+	out << "\"time\": " << minTime << ",\n";
+	out << "\"draw\": " << draw << ",\n";
+	out << "\"data\": [\n";
+
+	unsigned end = f.start + f.num;
+	if (end > results.size() || f.num == 0)
+		end = results.size();
+	for (unsigned i = f.start; i < end; i++)
+	{
+		Result *res = results[i];
+		out << "[" << res->position << "," << res->orig_position << ",\"" << res->name << "\"," << res->score << ","
+				<< res->rmsd << "]";
+		if(i != end-1) out << ",";
+		out << "\n";
+	}
+	out << "]}\n";
 }
 
 //write out all results in sdf.gz format
