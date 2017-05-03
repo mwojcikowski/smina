@@ -764,14 +764,25 @@ void sdfcontext::dump(std::ostream& out) const
 //output sdf format to out
 void sdfcontext::write(const vecv& coords, sz nummove, std::ostream& out) const
 {
-	const unsigned bsize = 1024;
-	char buff[bsize]; //since sprintf is just so much easier to use
-	//name followed by two blank lines
-	out << name << "\n\n\n";
+    const unsigned bsize = 1024;
+    char buff[bsize]; //since sprintf is just so much easier to use
+    //name followed by two blank lines
+    out << name << "\n\n\n";
 
-	//cnts and version line
+    //fragment minimization in anchorquery is doing something goofy that
+    //results in self bonds.. this is a bandaid
+    int nbonds = 0;
+    for(unsigned i = 0, n = bonds.size(); i < n; i++)
+    {
+      const sdfbond& bond = bonds[i];
+      if(bond.a != bond.b) {
+        nbonds++;
+      }
+    }
+
+    //cnts and version line
     snprintf(buff, bsize, "%3d%3d  0  0  0  0  0  0  0  0999 V2000\n",
-             (int)atoms.size(), (int)bonds.size());
+             (int)atoms.size(), nbonds);
     out << buff;
 
     //atom block
