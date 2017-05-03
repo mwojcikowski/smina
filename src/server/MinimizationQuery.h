@@ -44,7 +44,7 @@ struct MinimizationFilters
 	unsigned start; //were to start
 	unsigned num; //how many to include, if zero then all
 
-	enum SortType { Score=0, RMSD=1, OrigPos=2};
+	enum SortType { Score=0, RMSD=1, OrigPos=2, Efficiency=3};
 	SortType sort;
 	bool reverseSort;
 
@@ -110,12 +110,13 @@ private:
 	{
 		double score;
 		double rmsd;
+		double efficiency;
 		string name;
 		string sdf;
 		unsigned position; //location in allResults
 		unsigned orig_position; //location in input stream
 
-		Result(): score(0), rmsd(0), position(0),orig_position(0) {}
+		Result(): score(0), rmsd(0), efficiency(0), position(0),orig_position(0) {}
 	};
 
 	Result* minimize(model& m); //return new result
