@@ -791,10 +791,12 @@ void sdfcontext::write(const vecv& coords, sz nummove, std::ostream& out) const
     for(unsigned i = 0, n = bonds.size(); i < n; i++)
     {
     	const sdfbond& bond = bonds[i];
-    	out << std::setw(3) << bond.a+1; //indexed from one
-    	out << std::setw(3) << bond.b+1;
-    	out << std::setw(3) << (int)bond.type;
-    	out << "  0  0  0\n";
+    	if(bond.a != bond.b) {
+        out << std::setw(3) << bond.a+1; //indexed from one
+        out << std::setw(3) << bond.b+1;
+        out << std::setw(3) << (int)bond.type;
+        out << "  0  0  0\n";
+    	}
     }
 
     //properties
