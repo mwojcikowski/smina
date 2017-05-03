@@ -181,6 +181,7 @@ MinimizationQuery::Result* MinimizationQuery::minimize(model& m)
 	Result *result = new Result();
 	result->score = e;
 	result->rmsd = rmsd;
+	result->efficiency = e/m.num_movable_atoms();
 	result->name = m.get_name();
 	stringstream str;
 
@@ -337,6 +338,9 @@ public:
 		case MinimizationFilters::RMSD:
 			res = lhs->rmsd < rhs->rmsd;
 			break;
+		case MinimizationFilters::Efficiency:
+		  res = lhs->efficiency < rhs->efficiency;
+		  break;
 		case MinimizationFilters::OrigPos:
 			res = lhs->orig_position < rhs->orig_position;
 			break;
@@ -420,7 +424,7 @@ void MinimizationQuery::outputData(const MinimizationFilters& f, ostream& out)
 	{
 		Result *res = results[i];
 		out << res->position << "," << res->orig_position << "," << res->name << "," << res->score << ","
-				<< res->rmsd << "\n";
+				<< res->rmsd << "," << res->efficiency << "\n";
 	}
 }
 

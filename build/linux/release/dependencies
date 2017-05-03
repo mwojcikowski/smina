@@ -3453,9 +3453,9 @@
 ./weighted_terms.o: ../../../src/lib/array3d.h
 ./weighted_terms.o: ../../../src/lib/grid_dim.h
 ./weighted_terms.o: ../../../src/lib/curl.h
+./main.o: ../../../src/lib/common.h ../../../src/lib/macros.h
 ./main.o: ../../../src/lib/parse_pdbqt.h
 ./main.o: ../../../src/lib/model.h ../../../src/lib/file.h
-./main.o: ../../../src/lib/common.h ../../../src/lib/macros.h
 ./main.o: ../../../src/lib/tree.h ../../../src/lib/conf.h
 ./main.o: ../../../src/lib/quaternion.h
 ./main.o: ../../../src/lib/random.h ../../../src/lib/atom.h
