@@ -769,20 +769,9 @@ void sdfcontext::write(const vecv& coords, sz nummove, std::ostream& out) const
     //name followed by two blank lines
     out << name << "\n\n\n";
 
-    //fragment minimization in anchorquery is doing something goofy that
-    //results in self bonds.. this is a bandaid
-    int nbonds = 0;
-    for(unsigned i = 0, n = bonds.size(); i < n; i++)
-    {
-      const sdfbond& bond = bonds[i];
-      if(bond.a != bond.b) {
-        nbonds++;
-      }
-    }
-
     //cnts and version line
     snprintf(buff, bsize, "%3d%3d  0  0  0  0  0  0  0  0999 V2000\n",
-             (int)atoms.size(), nbonds);
+             (int)atoms.size(), (int)bonds.size());
     out << buff;
 
     //atom block
@@ -802,12 +791,10 @@ void sdfcontext::write(const vecv& coords, sz nummove, std::ostream& out) const
     for(unsigned i = 0, n = bonds.size(); i < n; i++)
     {
     	const sdfbond& bond = bonds[i];
-    	if(bond.a != bond.b) {
-        out << std::setw(3) << bond.a+1; //indexed from one
-        out << std::setw(3) << bond.b+1;
-        out << std::setw(3) << (int)bond.type;
-        out << "  0  0  0\n";
-    	}
+      out << std::setw(3) << bond.a+1; //indexed from one
+      out << std::setw(3) << bond.b+1;
+      out << std::setw(3) << (int)bond.type;
+      out << "  0  0  0\n";
     }
 
     //properties
