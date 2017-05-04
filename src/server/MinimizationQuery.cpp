@@ -119,9 +119,7 @@ MinimizationQuery::Result* MinimizationQuery::minimize(model& m)
 	static const fl autobox_add = 4;
 	static const fl granularity = 0.375;
 	vec authentic_v(10, 10, 10); //"soft" minimization
-
 	if(isFrag) authentic_v = vec(100,100,100); //harder since we can't resolve clashes with fixed parts
-
 	vecv origcoords = m.get_heavy_atom_movable_coords();
 	fl e = max_fl;
 	conf c = m.get_initial_conf();
@@ -191,7 +189,6 @@ MinimizationQuery::Result* MinimizationQuery::minimize(model& m)
 		m.write_flex_sdf(str);
 	}
 	result->sdf = str.str();
-
 	return result;
 }
 
@@ -276,7 +273,6 @@ void MinimizationQuery::thread_minimize(MinimizationQuery* q)
 					m.set_name(l.c.sdftext.name);
 
 					m.append(tmp.m);
-
 					Result *result = q->minimize(m);
 					result->orig_position = l.origpos;
 					if (result != NULL)

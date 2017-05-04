@@ -118,6 +118,26 @@ unsigned int FindFragments(OBMol mol, vector<vector<int> >& rigid_fragments,
 		}
 		mol_pieces.ContigFragList(rigid_fragments);
 	}
+
+	if(norotate.size() > 1) 
+	{ //make sure all fixed atoms are in root fragment
+		vector<vector<int> > newfrags;
+		vector<int> rootfrag;
+		for(unsigned i = 0, n = rigid_fragments.size(); i< n; i++) 
+		{
+			unsigned j = 0;
+			unsigned m = rigid_fragments[i].size();
+			for(j = 0; j < m; j++) {
+				if(norot.count(rigid_fragments[i][j])) {
+					rootfrag.insert(rootfrag.end(), rigid_fragments[i].begin(), rigid_fragments[i].end());
+					break;
+				}
+			}
+			if(j == m) newfrags.push_back(rigid_fragments[i]);
+		}
+		newfrags.push_back(rootfrag);
+		rigid_fragments.swap(newfrags);	
+	}
 	return best_root_atom;
 }
 
