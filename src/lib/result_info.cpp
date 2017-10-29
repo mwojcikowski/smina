@@ -146,6 +146,14 @@ void result_info::write(std::ostream& out, std::string& ext,
 
 		out << "$$$$\n";
 	}
+	else if(!sdfvalid && ext == ".pdbqt")
+	{
+		out << "MODEL " << boost::lexical_cast<std::string>(modelnum) << "\n";
+		out << "REMARK minimizedAffinity " << boost::lexical_cast<std::string>((float) energy) << "\n";
+		out << "REMARK minimizedRMSD " << boost::lexical_cast<std::string>((float) rmsd) << "\n";
+		out << molstr;
+		out << "ENDMDL\n";
+	}
 	else //convert with openbabel
 	{
 		if(sdfvalid)
