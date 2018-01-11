@@ -147,7 +147,7 @@ bool IsRotBond_PDBQT(OBBond * the_bond, unsigned desired_root)
 //and if both atoms it connects have at least one other atom bounded to them
 //will also allow bonds to the desired root to rotate
 {
-	if (!the_bond->GetBondOrder() == 1 || the_bond->IsAmide() || the_bond->IsInRing())
+	if (!(the_bond->GetBondOrder() == 1) || the_bond->IsAmide() || the_bond->IsInRing())
 	{
 		return false;
 	}
