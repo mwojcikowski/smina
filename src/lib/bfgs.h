@@ -133,7 +133,8 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 		x_new = x;
 		x_new.increment(p, alpha);
 		f1 = f(x_new, g_new);
-		//std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << "\n";
+//    std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << " f0ALF " << f0 + ALF * alpha * slope << "\n";
+
 		if (alpha < alamin) //convergence
 		{
 			x_new = x;
@@ -231,9 +232,11 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		else
 			alpha = fast_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
 
-		if(alpha == 0)
+		if(alpha == 0) {
+      //fl gradnormsq = scalar_product(g, g, n);
+      //std::cout << "wrongdir gradnorm " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
 			break; //line direction was wrong, give up
-
+		}
 		Change y(g_new);
 		subtract_change(y, g, n);
 
@@ -252,9 +255,7 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		}
 
 		g = g_new; // dkoes - check the convergence of the new gradient
-
 		fl gradnormsq = scalar_product(g, g, n);
-//std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
 
 		if (!(gradnormsq >= 1e-4)) //slightly arbitrary cutoff - works with fp
 		{
