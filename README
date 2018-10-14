@@ -169,7 +169,7 @@ Example:  Faking covalent docking.  Consider this custom scoring function:
 -100.0       atom_type_gaussian(t1=Chlorine,t2=Sulfur,o=0,_w=3,_c=8)
 
 All but the last term are the default Vina scoring function.  That last
-term applys a very strong guassian potential between Cl and S.  In the
+term applies a very strong guassian potential between Cl and S.  In the
 system we were docking, we modified the two atoms we wanted to be next
 to each other (because they are known form a covalent bond) to be a chlorine
 and a sulfur (the system is not physical, but that's okay).  Since these
