@@ -102,6 +102,10 @@ void result_info::writeFlex(std::ostream& out, std::string& ext, int modelnum)
 	OBMol mol;
 	OBConversion outconv;
 	OBFormat *format = outconv.FormatFromExt(ext);
+	if(!format) {
+	  std::cerr << "Invalid format: " << ext << "\n";
+	  exit(-1);
+	}
 	//residue are pdbqt only currently
 	outconv.SetInFormat("PDBQT");
 	outconv.SetOutFormat(format);
@@ -122,6 +126,10 @@ void result_info::write(std::ostream& out, std::string& ext,
 	OBConversion outconv;
 
 	OBFormat *format = outconv.FormatFromExt(ext);
+	if(!format) {
+	  std::cerr << "Invalid format: " << ext << "\n";
+	  exit(-1);
+	}
 
 	if (sdfvalid && strcmp(format->GetID(), "sdf") == 0) //use native sdf
 	{
