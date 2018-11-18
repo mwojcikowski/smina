@@ -1,3 +1,5 @@
+** This is a private fork of Smina code. For support and issues please refer to the original project homepage: https://sourceforge.net/projects/smina/ **
+
 smina is a fork of Autodock Vina (http://vina.scripps.edu/) that 
 focuses on improving scoring and minimization.  Changes from the
 standard Vina (version 1.1.2) include:
