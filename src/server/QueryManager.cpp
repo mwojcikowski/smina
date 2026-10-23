@@ -11,6 +11,9 @@
 #include <boost/algorithm/string.hpp>
 #include <openbabel/obconversion.h>
 #include <openbabel/mol.h>
+#include <openbabel/obiter.h>
+#include <openbabel/atom.h>
+#include <openbabel/bond.h>
 
 using namespace boost;
 using namespace OpenBabel;

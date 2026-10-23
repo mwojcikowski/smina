@@ -11,8 +11,18 @@
 #define REORIENTER_H_
 
 
+#if defined(__has_include)
+#if __has_include(<Eigen/Core>)
+#include <Eigen/Core>
+#include <Eigen/Eigenvalues>
+#elif __has_include(<eigen3/Eigen/Core>)
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Eigenvalues>
+#endif
+#else
+#include <eigen3/Eigen/Core>
+#include <eigen3/Eigen/Eigenvalues>
+#endif
 #include <iostream>
 #include "common.h"
 #include "parsing.h"

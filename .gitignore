@@ -1,2 +1,5 @@
-Debug
-Release/
+/Debug/
+/Release/
+build-msvc/
+*.pdbqt
+*.smina

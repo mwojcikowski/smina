@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <vector>
 #include "CommandLine2/CommandLine.h"
 #include "SminaConverter.h"
 #include <boost/archive/binary_iarchive.hpp>
@@ -32,9 +33,10 @@ int main(int argc, char *argv[])
   {
     unsigned sz;
     ifile.read((char*)&sz, sizeof(sz));
-    char buffer[sz+1];
-    ifile.read(buffer, sz);
+    if(!ifile) break;
 
+    std::vector<char> buffer(sz + 1, 0);
+    ifile.read(&buffer[0], sz);
     if(!ifile) break;
 
     stringstream data;

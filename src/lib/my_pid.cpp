@@ -20,8 +20,8 @@
 
 */
 
-#ifdef WIN32
-#include <Windows.h>
+#if defined(WIN32) || defined(_WIN32)
+#include <windows.h>
 #else
 #include <unistd.h>
 #endif
@@ -29,10 +29,9 @@
 #include "my_pid.h"
 
 int my_pid() {
-#ifdef WIN32
+#if defined(WIN32) || defined(_WIN32)
 	return GetCurrentProcessId();
 #else
 	return getpid();
 #endif
 }
-

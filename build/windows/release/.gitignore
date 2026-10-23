@@ -1,0 +1,13 @@
+*.o
+*.a
+*.exe
+*.obf
+*.sdf
+*.smina
+*.pdbqt
+dependencies
+smina
+tosmina
+fromsmina
+server
+libsmina.a

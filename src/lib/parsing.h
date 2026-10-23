@@ -18,6 +18,7 @@
 #include <boost/filesystem/fstream.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/serialization/utility.hpp>
+#include <boost/serialization/optional.hpp>
 #include "parse_pdbqt.h"
 #include "atom_constants.h"
 #include "convert_substring.h"
@@ -300,6 +301,7 @@ struct pdbqt_initializer {
 
 namespace boost {
 namespace serialization {
+#if BOOST_VERSION < 107000
 //default all our classes to not have version info
 template <class T>
 struct implementation_level_impl< const T >
@@ -335,6 +337,7 @@ struct implementation_level_impl< const T >
         >::type type;
     BOOST_STATIC_CONSTANT(int, value = type::value);
 };
+#endif
 
 //STL containers ignore above (seems like a bug)
 template<class Archive, class T>
